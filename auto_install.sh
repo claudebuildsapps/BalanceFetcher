@@ -121,8 +121,17 @@ EOF
 start_app() {
     echo -e "${BLUE}Starting $APP_NAME...${NC}"
     
-    # Kill any existing instances
-    killall "$APP_NAME" 2>/dev/null || true
+    # First, check if the app is already running
+    if pgrep -x "$APP_NAME" > /dev/null; then
+        echo -e "${BLUE}Found existing instance of $APP_NAME running.${NC}"
+        echo -e "${BLUE}Terminating all existing instances...${NC}"
+        
+        # Force kill all instances to ensure clean state
+        pkill -9 -x "$APP_NAME" 2>/dev/null
+        
+        # Wait a moment for processes to fully terminate
+        sleep 1
+    fi
     
     # Start the app
     "$INSTALL_DIR/$APP_NAME" &
@@ -156,17 +165,25 @@ uninstall_app() {
     echo -e "${BLUE}Uninstalling $APP_NAME...${NC}"
     
     # Unload and remove launch agent
+    echo -e "${BLUE}Removing autostart configuration...${NC}"
     launchctl unload "$PLIST_FILE" 2>/dev/null || true
     rm -f "$PLIST_FILE"
     
-    # Kill running instance
-    killall "$APP_NAME" 2>/dev/null || true
+    # Terminate any running instances
+    echo -e "${BLUE}Terminating any running instances...${NC}"
+    if pgrep -x "$APP_NAME" > /dev/null; then
+        # Force kill to ensure termination
+        pkill -9 -x "$APP_NAME"
+        sleep 1
+    fi
     
     # Remove installed files
+    echo -e "${BLUE}Removing application files...${NC}"
     rm -rf "$INSTALL_DIR"
     rm -f "$LAUNCHER_PATH"
     
     echo -e "${GREEN}$APP_NAME has been completely uninstalled.${NC}"
+    echo -e "${GREEN}All processes terminated and files removed.${NC}"
 }
 
 # Process command line arguments
