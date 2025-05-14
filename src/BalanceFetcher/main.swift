@@ -6,17 +6,8 @@ let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 
-// Ensure we're running as an agent (menu bar app with no Dock icon)
+// Configure as a background application
 app.setActivationPolicy(.accessory)
-
-// Don't terminate when the last window is closed
-NSApp.setActivationPolicy(.accessory)
-app.applicationShouldTerminateAfterLastWindowClosed = false
-
-// Disable app activation when clicking the menu bar icon
-if let appMenu = app.mainMenu?.item(withTitle: "application")?.submenu {
-    appMenu.items.forEach { $0.isEnabled = false }
-}
 
 // Run the application event loop - this will keep running until quit is selected
 app.run()
