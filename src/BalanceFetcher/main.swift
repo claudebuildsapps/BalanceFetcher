@@ -5,6 +5,20 @@ import AppKit
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
+
+// Ensure we're running as an agent (menu bar app with no Dock icon)
+app.setActivationPolicy(.accessory)
+
+// Don't terminate when the last window is closed
+NSApp.setActivationPolicy(.accessory)
+app.applicationShouldTerminateAfterLastWindowClosed = false
+
+// Disable app activation when clicking the menu bar icon
+if let appMenu = app.mainMenu?.item(withTitle: "application")?.submenu {
+    appMenu.items.forEach { $0.isEnabled = false }
+}
+
+// Run the application event loop - this will keep running until quit is selected
 app.run()
 
 class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
@@ -33,10 +47,42 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         
         // Start the timer for script execution
         startRefreshTimer()
+        
+        // Register for sleep/wake notifications
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemWillSleep),
+            name: NSWorkspace.screensDidSleepNotification,
+            object: nil
+        )
+        
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake),
+            name: NSWorkspace.screensDidWakeNotification,
+            object: nil
+        )
     }
     
     func applicationWillTerminate(_ notification: Notification) {
+        // Cleanup when application is quitting
         stopRefreshTimer()
+        
+        // Unregister for notifications
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+    
+    @objc func systemWillSleep(_ notification: Notification) {
+        // Pause timer during sleep to conserve resources
+        stopRefreshTimer()
+    }
+    
+    @objc func systemDidWake(_ notification: Notification) {
+        // Resume timer after wake
+        startRefreshTimer()
+        
+        // Immediately refresh to get the latest data
+        executeScript()
     }
     
     @objc func openSettings() {
