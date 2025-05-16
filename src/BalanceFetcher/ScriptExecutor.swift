@@ -81,16 +81,43 @@ class ScriptExecutor {
     func executeCommand(_ command: String, timeout: TimeInterval? = nil) -> Result<String, Error> {
         let timeout = timeout ?? defaultTimeout
         
+        // For bin commands, we need to handle them differently to avoid permissions prompts
+        // Check if this is a command in a standard system bin directory
+        let isBinCommand = command.hasPrefix("/usr/bin/") || 
+                            command.hasPrefix("/bin/") || 
+                            command.hasPrefix("/usr/local/bin/") ||
+                            command.hasPrefix("/opt/homebrew/bin/")
+        
         // Create process for command execution
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = ["-c", command]
+        
+        if isBinCommand {
+            // Extract the executable and arguments
+            let components = command.split(separator: " ", maxSplits: 1)
+            let executable = String(components[0])
+            
+            process.executableURL = URL(fileURLWithPath: executable)
+            
+            // Add arguments if present
+            if components.count > 1 {
+                process.arguments = components[1].split(separator: " ").map { String($0) }
+            }
+        } else {
+            // Use bash for other commands
+            process.executableURL = URL(fileURLWithPath: "/bin/bash")
+            process.arguments = ["-c", command]
+        }
         
         // Set up pipes for output
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        
+        // Set environment variables to avoid file access prompts
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+        process.environment = env
         
         // Prepare for execution
         do {
